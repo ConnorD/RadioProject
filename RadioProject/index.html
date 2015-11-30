@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Radio test</title>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300' rel='stylesheet' type='text/css'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="../common/spotify_en_tools.js"></script>
+    <link type="text/css" href="styles.css" rel="stylesheet" />
+  </head>
+
+<body>
+ <div id='content' class="container font-light">
+    <h1 id='title'> </h1>
+    <div id='seed' class='centered'>
+        <span> Seed artist:
+            <input title="Artist" type="text"  size=34 id="artist" name="artist" value='God is an Astronaut'/>
+        </span>
+        <button value="go" id="go" name="go"> Go </button>
+    </div>
+    <div id="info"> </div>
+    <div id="all_results"> </div>
+    <div id='footer'>
+
+    </div>
+ </div>
+</body>
+
+<script type="text/javascript">
+
+jQuery.ajaxSettings.traditional = true;
+var config = getConfig();
+var allArtists = [];
+
+function fetchSongInfo(songs, callback) {
+  var url = config.echoNestHost + 'api/v4/song/search'
+
+  songs.forEach(function(song) {
+    // get tracks and info for this song
+    console.log(song);
+    songRequest = $.getJSON(url, {
+          'api_key': config.apiKey,
+          'title': song.title,
+          'bucket': ['id:' + config.spotifySpace, 'audio_summary', 'tracks']
+        })
+      .done(function(data) {
+          info("");
+          if (data.response.status.code == 0) {
+            allSongs.push(data.response.songs[0]);
+          } else {
+              info("No similars for " + artist.name);
+          }
+      })
+      .error(function() {
+          info("Whoops, had some trouble getting similar artists");
+      });
+
+    promises.push(songRequest);
+    console.log(promises.length);
+  });
+}
+
+function fetchAllSongs(artists, callback) {
+  var url = config.echoNestHost + 'api/v4/artist/songs';
+  var tracksUrl = config.echoNestHost + 'api/v4/song/search'
+  var allSongs = [];
+
+  $("#all_results").empty();
+  info("Getting each artist's songs...");
+
+  // go through each artist and get their songs
+  artists.forEach(function(artist) {
+    artistRequest = $.getJSON(url, {
+          'api_key': config.apiKey,
+          'id' : artist.id
+        })
+      .done(function(data) {
+          info("");
+          if (data.response.status.code == 0 && data.response.songs.length > 0) {
+
+          } else {
+              info("No similars for " + artist.name);
+          }
+      })
+      .error(function() {
+          info("Whoops, had some trouble getting similar artists");
+      });
+
+      promises.push(artistRequest);
+    });
+
+    // wait for all Ajax requests to finish
+    $.when.apply(null, promises).done(function(){
+      callback(allSongs);
+    });
+}
+
+function fetchSimilarArtists(artist, callback) {
+    var url = config.echoNestHost + 'api/v4/artist/similar';
+    $("#all_results").empty();
+    info("Getting similar artists ...");
+    $.getJSON(url, {
+            'api_key': config.apiKey,
+            'id' : artist.id,
+            'bucket': [ 'id:' + config.spotifySpace],
+            'limit' : true,
+          })
+        .done(function(data) {
+            info("");
+            if (data.response.status.code == 0 && data.response.artists.length > 0) {
+                callback(data.response.artists);
+            } else {
+                info("No similars for " + artist.name);
+            }
+        })
+        .error(function() {
+            info("Whoops, had some trouble getting similar artists");
+        }) ;
+}
+
+function fetchArtistPlaylist(artist,  wandering, variety) {
+    var url = config.echoNestHost + 'api/v4/artist/search';
+    $("#all_results").empty();
+    info("Creating the playlist ...");
+
+    // search for the artist themselves
+    $.getJSON(url, {
+        'api_key': config.apiKey,
+        'name' : artist,
+        'bucket': [ 'id:' + config.spotifySpace],
+        'limit' : true
+      })
+      .done(function(data) {
+        info("");
+        if (data.response.status.code == 0 && data.response.artists.length > 0) {
+            var seed = data.response.artists[0];
+
+            // now that we have the artist data, find similar artists
+            fetchSimilarArtists(seed, function(artists) {
+              fetchAllSongs(artists, function(songs) {
+                fetchSongInfo(songs, function(songs)) {
+
+                  var title = "Radio for: " + artist;
+                  console.log(artists);
+
+                  // console.log(songs.length);
+                  var spotifyPlayButton = getSpotifyPlayButtonForPlaylist(title, songs);
+                  $("#all_results").append(spotifyPlayButton);
+                }
+              });
+            });
+        } else {
+            info("Can't find that artist");
+        }
+      })
+      .error( function() {
+          info("Whoops, had some trouble getting that playlist");
+      });
+}
+
+
+function newArtist() {
+    var artist = $("#artist").val();
+    fetchArtistPlaylist(artist, false, .2);
+}
+
+function info(txt) {
+    $("#info").text(txt);
+}
+
+function initUI() {
+    $("#artist").on('keydown', function(evt) {
+        if (evt.keyCode == 13) {
+            newArtist();
+        }
+    });
+    $("#go").on("click", function() {
+        newArtist();
+    });
+}
+
+$(document).ready(function() {
+    initUI();
+});
+
+</script>
+</html>
