@@ -30,35 +30,85 @@
 jQuery.ajaxSettings.traditional = true;
 var config = getConfig();
 var allArtists = [];
+var allTracks = [];
 
-function fetchTrackInfo()
+// these values should be based on the average audio summaries from the artist's song list
+var artist_profile = {
+  "danceability": 0.5164314670162907,
+   "energy": 0.6617689403520844,
+   "loudness": -4.613,
+   "speechiness": 0.16405298937493515,
+   "acousticness": 0.1331355,
+   "liveness": 0.05298937493515,
+   "tempo": 74.694
+}
 
-function fetchSongInfo(songs, callback) {
+function fetchTrackInfo(track, callback) {
+  var url = config.echoNestHost + 'api/v4/track/profile'
+
+  // get track info and calculate relevance value for suggestion
+  songRequest = $.getJSON(url, {
+        'api_key': config.apiKey,
+        'id': track.id,
+        'bucket': ['id:' + config.spotifySpace, 'audio_summary']
+      })
+    .done(function(data) {
+        info("");
+        if (data.response.status.code == 0) {
+          var track = data.response.track;
+          var track_profile = track.audio_summary;
+          // calculate this song's relevance to the currently selected artist
+          var relevance_value = 0;
+
+          // add all the comparison values to the overall relevance
+          relevance_value += (arist_profile['danceability'] - track_profile['danceability'])/artist_profile['danceability'];
+          relevance_value += (arist_profile['energy'] - track_profile['energy'])/artist_profile['energy'];
+          relevance_value += (arist_profile['loudness'] - track_profile['loudness'])/artist_profile['loudness'];
+          relevance_value += (arist_profile['speechiness'] - track_profile['speechiness'])/artist_profile['speechiness'];
+          relevance_value += (arist_profile['acousticness'] - track_profile['acousticness'])/artist_profile['acousticness'];
+          relevance_value += (arist_profile['liveness'] - track_profile['liveness'])/artist_profile['liveness'];
+          relevance_value += (arist_profile['tempo'] - track_profile['tempo'])/artist_profile['tempo'];
+
+          track.relevance_value = relevance_value;
+          allTracks.push(track);
+        } else {
+            info("No song info for " + song.name);
+        }
+    })
+    .error(function() {
+        info("Whoops, had some trouble getting similar artists");
+    });
+
+    callback();
+}
+
+function fetchSongInfo(song, callback) {
   var url = config.echoNestHost + 'api/v4/song/search'
 
-  songs.forEach(function(song) {
-    // get tracks and info for this song
-    console.log(song);
-    songRequest = $.getJSON(url, {
-          'api_key': config.apiKey,
-          'title': song.title,
-          'bucket': ['id:' + config.spotifySpace, 'audio_summary', 'tracks']
-        })
-      .done(function(data) {
-          info("");
-          if (data.response.status.code == 0) {
-            allSongs.push(data.response.songs[0]);
-          } else {
-              info("No similars for " + artist.name);
-          }
+  // get tracks and info for this song
+  console.log(song);
+  songRequest = $.getJSON(url, {
+        'api_key': config.apiKey,
+        'title': song.title,
+        'bucket': ['id:' + config.spotifySpace, 'tracks']
       })
-      .error(function() {
-          info("Whoops, had some trouble getting similar artists");
-      });
+    .done(function(data) {
+        info("");
+        if (data.response.status.code == 0) {
+          // get the first song's first track and then fetch that track info
+          fetchTrackInfo(data.response.songs[0].tracks[0], function () {
+            sortTracksByRelevance();
+          });
+        } else {
+            info("No song info for " + song.name);
+        }
+    })
+    .error(function() {
+        info("Whoops, had some trouble getting similar artists");
+    });
 
     promises.push(songRequest);
     console.log(promises.length);
-  });
 }
 
 function fetchAllSongs(artists, callback) {
@@ -78,7 +128,10 @@ function fetchAllSongs(artists, callback) {
       .done(function(data) {
           info("");
           if (data.response.status.code == 0 && data.response.songs.length > 0) {
-            allSongs.append(data.response.songs);
+            data.response.songs.forEach(function(song) {
+              // get tracks for each song
+              fetchSongInfo()
+            })
           } else {
               info("No similars for " + artist.name);
           }
