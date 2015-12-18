@@ -13,7 +13,7 @@
     <h1 id='title'> </h1>
     <div id='seed' class='centered'>
         <span> Seed artist:
-            <input title="Artist" type="text"  size=34 id="artist" name="artist" value='God is an Astronaut'/>
+            <input title="Artist" type="text"  size=34 id="artist" name="artist" value='Pretty Lights'/>
         </span>
         <button value="go" id="go" name="go"> Go </button>
     </div>
@@ -30,6 +30,8 @@
 jQuery.ajaxSettings.traditional = true;
 var config = getConfig();
 var allArtists = [];
+
+function fetchTrackInfo()
 
 function fetchSongInfo(songs, callback) {
   var url = config.echoNestHost + 'api/v4/song/search'
@@ -76,7 +78,7 @@ function fetchAllSongs(artists, callback) {
       .done(function(data) {
           info("");
           if (data.response.status.code == 0 && data.response.songs.length > 0) {
-
+            allSongs.append(data.response.songs);
           } else {
               info("No similars for " + artist.name);
           }
@@ -90,6 +92,7 @@ function fetchAllSongs(artists, callback) {
 
     // wait for all Ajax requests to finish
     $.when.apply(null, promises).done(function(){
+      // return back with all the songs in the array
       callback(allSongs);
     });
 }
@@ -137,7 +140,7 @@ function fetchArtistPlaylist(artist,  wandering, variety) {
             // now that we have the artist data, find similar artists
             fetchSimilarArtists(seed, function(artists) {
               fetchAllSongs(artists, function(songs) {
-                fetchSongInfo(songs, function(songs)) {
+                fetchSongInfo(songs, function(songs) {
 
                   var title = "Radio for: " + artist;
                   console.log(artists);
@@ -145,7 +148,7 @@ function fetchArtistPlaylist(artist,  wandering, variety) {
                   // console.log(songs.length);
                   var spotifyPlayButton = getSpotifyPlayButtonForPlaylist(title, songs);
                   $("#all_results").append(spotifyPlayButton);
-                }
+                });
               });
             });
         } else {
