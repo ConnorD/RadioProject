@@ -43,6 +43,13 @@ var artist_profile = {
    "tempo": 74.694
 }
 
+function sortTracksByRelevance() {
+  // the final track sorting
+  allTracks.sort(function(a, b) {
+    return b.relevance_value - a.relevance_value;
+  });
+}
+
 function fetchTrackInfo(track, callback) {
   var url = config.echoNestHost + 'api/v4/track/profile'
 
